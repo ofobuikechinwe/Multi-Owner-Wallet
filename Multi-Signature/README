@@ -1,0 +1,197 @@
+# Multi-Signature Treasury Wallet Smart Contract
+
+A secure, feature-rich multi-signature wallet implementation built for the Stacks blockchain using Clarity smart contract language. This contract enables multiple parties to jointly control a shared treasury, requiring consensus for all critical operations.
+
+## Features
+
+- **Multi-Signature Security**: Requires multiple owner approvals for transaction execution
+- **Transaction Proposals**: Owners can propose STX transfers with optional data attachments
+- **Approval Workflow**: Confirmation and revocation system for transaction approvals
+- **Owner Management**: Add/remove wallet owners through governance proposals
+- **Configurable Thresholds**: Adjustable approval requirements via governance
+- **Expiration Handling**: Automatic cleanup of expired transactions
+- **Treasury Management**: Secure deposit and withdrawal of STX tokens
+
+## Contract Architecture
+
+### Core Components
+
+1. **Transaction Management**: Proposal, confirmation, and execution system
+2. **Owner Registry**: Dynamic management of authorized wallet owners
+3. **Governance System**: Consensus-based changes to wallet parameters
+4. **Security Layer**: Comprehensive validation and authorization checks
+
+### Data Structures
+
+- `pending-transactions`: Stores transaction proposals with metadata
+- `owner-confirmations`: Tracks individual owner approvals per transaction
+- `wallet-owners`: Registry of authorized wallet owners
+
+## Getting Started
+
+### Initialization
+
+Deploy and initialize the wallet with initial owners and approval threshold:
+
+```clarity
+(contract-call? .multisig-wallet initialize-wallet 
+  (list 'SP1ABC... 'SP2DEF... 'SP3GHI...) ;; Initial owners
+  u2) ;; Require 2 confirmations
+```
+
+### Basic Usage
+
+#### 1. Deposit Funds
+```clarity
+(contract-call? .multisig-wallet deposit-funds u1000000) ;; 1 STX
+```
+
+#### 2. Propose Transaction
+```clarity
+(contract-call? .multisig-wallet propose-transaction
+  'SP1RECIPIENT... ;; Destination address
+  u500000 ;; 0.5 STX
+  (some 0x48656c6c6f) ;; Optional data ("Hello" in hex)
+  u150000) ;; Expiration block height
+```
+
+#### 3. Confirm Transaction
+```clarity
+(contract-call? .multisig-wallet confirm-transaction-approval u0) ;; Transaction ID
+```
+
+#### 4. Execute Transaction (automatic when threshold reached)
+```clarity
+(contract-call? .multisig-wallet execute-pending-transaction u0)
+```
+
+## API Reference
+
+### Read-Only Functions
+
+| Function | Description | Returns |
+|----------|-------------|---------|
+| `get-approval-threshold` | Current approval threshold | `uint` |
+| `is-wallet-owner` | Check if address is owner | `bool` |
+| `get-active-owner-count` | Number of active owners | `uint` |
+| `get-transaction-details` | Transaction information | `optional` |
+| `has-owner-confirmed` | Check owner confirmation status | `bool` |
+| `get-contract-balance` | Current STX balance | `uint` |
+
+### Transaction Functions
+
+| Function | Description | Parameters |
+|----------|-------------|------------|
+| `propose-transaction` | Create new transaction proposal | `destination`, `amount`, `data`, `expiration` |
+| `confirm-transaction-approval` | Approve pending transaction | `transaction-id` |
+| `revoke-transaction-confirmation` | Revoke previous approval | `transaction-id` |
+| `execute-pending-transaction` | Execute approved transaction | `transaction-id` |
+| `reject-pending-transaction` | Reject pending transaction | `transaction-id` |
+
+### Owner Management
+
+| Function | Description | Parameters |
+|----------|-------------|------------|
+| `propose-add-owner` | Propose adding new owner | `new-owner-address` |
+| `execute-add-owner-proposal` | Execute owner addition | `transaction-id` |
+| `propose-remove-owner` | Propose removing owner | `owner-to-remove` |
+| `execute-remove-owner-proposal` | Execute owner removal | `transaction-id` |
+
+### Governance Functions
+
+| Function | Description | Parameters |
+|----------|-------------|------------|
+| `propose-threshold-change` | Propose threshold modification | `new-threshold` |
+| `execute-threshold-change-proposal` | Execute threshold change | `transaction-id` |
+
+## Security Features
+
+### Access Control
+- Only registered owners can propose and confirm transactions
+- Automatic validation of owner status for all operations
+- Protection against unauthorized access attempts
+
+### Transaction Safety
+- Expiration timestamps prevent stale transactions
+- Duplicate confirmation prevention
+- Balance validation before execution
+- Automatic execution when threshold is reached
+
+### Data Validation
+- Buffer size limits for attached data (256 bytes)
+- Parameter validation for all inputs
+- Comprehensive error handling with descriptive codes
+
+## Error Codes
+
+| Code | Constant | Description |
+|------|----------|-------------|
+| 100 | `ERR-UNAUTHORIZED-ACCESS` | Caller not authorized |
+| 101 | `ERR-INVALID-PARAMETER-VALUE` | Invalid parameter provided |
+| 102 | `ERR-TRANSACTION-NOT-FOUND` | Transaction doesn't exist |
+| 103 | `ERR-TRANSACTION-ALREADY-EXECUTED` | Transaction already executed |
+| 104 | `ERR-TRANSACTION-ALREADY-REJECTED` | Transaction already rejected |
+| 105 | `ERR-TRANSACTION-EXPIRED` | Transaction past expiration |
+| 106 | `ERR-INSUFFICIENT-CONTRACT-BALANCE` | Insufficient funds |
+| 107 | `ERR-APPROVAL-THRESHOLD-TOO-HIGH` | Threshold exceeds owner count |
+| 108 | `ERR-OWNER-ALREADY-EXISTS` | Owner already registered |
+| 109 | `ERR-OWNER-NOT-FOUND` | Owner not found |
+| 110 | `ERR-ALREADY-CONFIRMED-BY-OWNER` | Already confirmed |
+| 111 | `ERR-NOT-CONFIRMED-BY-OWNER` | Not confirmed by owner |
+| 112 | `ERR-INVALID-DATA-BUFFER` | Invalid data buffer format |
+
+## Best Practices
+
+### Transaction Management
+- Set reasonable expiration times (typically 1-7 days)
+- Include descriptive data for transaction purposes
+- Monitor pending transactions regularly
+- Clean up expired transactions to maintain contract efficiency
+
+### Owner Management
+- Maintain adequate number of owners for security
+- Regularly review and update owner list
+- Ensure approval threshold remains appropriate
+- Document owner changes for audit trails
+
+### Security Considerations
+- Verify all transaction details before confirmation
+- Use hardware wallets for owner accounts
+- Implement additional off-chain verification for large transactions
+- Regular security audits recommended
+
+## Examples
+
+### Creating a 3-of-5 Multisig Wallet
+```clarity
+;; Initialize with 5 owners requiring 3 confirmations
+(contract-call? .multisig-wallet initialize-wallet 
+  (list 'SP1OWNER1... 'SP2OWNER2... 'SP3OWNER3... 'SP4OWNER4... 'SP5OWNER5...)
+  u3)
+```
+
+### Proposing a Payment
+```clarity
+;; Propose 10 STX payment with memo
+(contract-call? .multisig-wallet propose-transaction
+  'SP1VENDOR...
+  u10000000
+  (some 0x496e766f6963652023313233) ;; "Invoice #123"
+  (+ block-height u1008)) ;; ~1 week expiration
+```
+
+### Governance Change
+```clarity
+;; Propose changing threshold to 2
+(contract-call? .multisig-wallet propose-threshold-change u2)
+
+;; Other owners confirm the governance proposal
+(contract-call? .multisig-wallet confirm-transaction-approval u5)
+```
+
+## Deployment
+
+1. Deploy the contract to Stacks blockchain
+2. Call `initialize-wallet` with initial parameters
+3. Fund the contract using `deposit-funds`
+4. Begin proposing and confirming transactions
